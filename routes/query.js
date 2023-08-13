@@ -83,4 +83,13 @@ router.put("/cafe", async function (req, res, next) {
   }
 });
 
+router.delete("/cafe/:id", async function (req, res, next) {
+  try {
+    res.json(await query.deleteCafe(req.params.id));
+  } catch (err) {
+    console.error(`Error while getting data `, err.message);
+    next(err);
+  }
+});
+
 module.exports = router;

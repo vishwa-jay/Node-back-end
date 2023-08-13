@@ -20,6 +20,8 @@ async function getPaginatedAllCafes(page = 1, location = "") {
 
   //query executing after finalized query string and param list
   const rows = await db.query(query, paramArray);
+
+  //response data variable
   const data = helper.emptyOrRows(rows);
   const meta = { page };
 
@@ -30,7 +32,9 @@ async function getPaginatedAllCafes(page = 1, location = "") {
 }
 
 async function getAllCafes() {
-  const rows = await db.query( `SELECT *  FROM cafe`);
+  let query = `SELECT *  FROM cafe`;
+
+  const rows = await db.query(query);
   const data = helper.emptyOrRows(rows);
 
   return {
@@ -53,7 +57,8 @@ async function getAllEmployees(cafe, page = 1) {
       `${query} ORDER BY workeddays DESC LIMIT ${offset},${config.listPerPage}`,
     );
   }
-
+  
+  //response data variable
   const data = helper.emptyOrRows(rows);
   const meta = { page };
 
@@ -65,30 +70,29 @@ async function getAllEmployees(cafe, page = 1) {
 
 async function createEmployee(employee) {
   const { name, email, phone, gender,startdate, cafe_id } = employee;
-  const lastEmp = await findLastEmployee(); //check when no last employees available in the DB
-  const newEmpNo = helper.createNewEmpId(lastEmp[0].id);
+  const lastEmp = await findLastEmployee();
 
+  //if no last employee, then "UI0000000" or otherwise last employee id will pass to create new emp id
+  const newEmpNo = helper.createNewEmpId(lastEmp.length > 0 ? lastEmp[0].id : "UI0000000");
+
+  let paramArray = [`UI${newEmpNo}`,name,email,phone,gender,startdate,cafe_id];
   let query = "INSERT INTO employees VALUES (?,?,?,?,?,?,?)";
-  const newRow = await db.query(query, [
-    `UI${newEmpNo}`,
-    name,
-    email,
-    phone,
-    gender,
-    startdate,
-    cafe_id,
-  ]);
-  let { data } = {};
+
+  const newRow = await db.query(query, paramArray);
+
+  //response data variable
+  let res = {};
 
   if (newRow.affectedRows > 0) {
-    data = await getEmployeeById(`UI${newEmpNo}`);
+    // as rows affected, newly created employee will fetch and return with response
+    res = await getEmployeeById(`UI${newEmpNo}`);
     message = "Employee created successfully!";
   } else {
     throw new Error("Employee not created!");
   }
 
   return {
-    data,
+    data : res.data,
     message,
   };
 }
@@ -110,18 +114,12 @@ async function findLastEmployee() {
 async function updateEmployee(employee) {
   const { id, name, email, phone, gender,startdate, cafe_id } = employee;
 
-  let query =
-    "UPDATE employees SET name = ?,email=?,phone=?,gender =?,startdate=?, cafe_id =? WHERE id=?";
-  const newRow = await db.query(query, [
-    name,
-    email,
-    phone,
-    gender,
-    startdate,
-    cafe_id,
-    id,
-  ]);
+  let paramArray =[name, email, phone, gender, startdate, cafe_id, id];
+  let query = "UPDATE employees SET name = ?,email=?,phone=?,gender =?,startdate=?, cafe_id =? WHERE id=?";
 
+  const newRow = await db.query(query, paramArray);
+
+  //response data variable, fetching newly added employee
   let { data } = await getEmployeeById(id);
   let message;
 
@@ -148,25 +146,25 @@ async function getCafeById(cafeId) {
 async function createCafe(cafe) {
   const { name, location, description, logo } = cafe;
   const newUUID = uuid.v4();
+
+  let paramArray = [newUUID, name, description, location, logo];
   let query = "INSERT INTO cafe VALUES (?,?,?,?,?)";
-  const newRow = await db.query(query, [
-    newUUID,
-    name,
-    description,
-    location,
-    logo,
-  ]);
-  let { data } = {};
+
+  const newRow = await db.query(query, paramArray);
+
+  //response data variable
+  let res = {};
 
   if (newRow.affectedRows > 0) {
-    data = await getCafeById(newUUID);
+    // as rows affected, newly created cafe will fetch and return with response
+    res = await getCafeById(newUUID);
     message = "Cafe created successfully!";
   } else {
     throw new Error("Cafe not created!");
   }
 
   return {
-    data,
+    data: res.data,
     message,
   };
 }
@@ -177,6 +175,7 @@ async function updateCafe(cafe) {
     "UPDATE cafe SET name = ?,description=?,location=?,logo =? WHERE id=?";
   const newRow = await db.query(query, [name, description, location, logo, id]);
 
+  //response data variable
   let { data } = await getCafeById(id);
   let message;
 
@@ -192,6 +191,32 @@ async function updateCafe(cafe) {
   };
 }
 
+async function deleteCafe(id){
+  let query = "DELETE FROM cafe WHERE id=?";
+  query = `DELETE cafe,employees FROM cafe INNER JOIN employees ON employees.cafe_id = cafe.id WHERE cafe.id=?`
+  
+  let paramArray = [id];
+ 
+  //response data variable
+  let res = await db.query(query, paramArray);
+
+  if (res.affectedRows > 0) {
+    // as rows affected
+    res = await getPaginatedAllCafes(1,"");
+    message = "Cafe deleted successfully!";
+  } else {
+    throw new Error("Cafe not deleted!");
+  }
+
+  return {
+    data: res.data,
+    meta: res.meta,
+    message,
+  };
+
+
+}
+
 module.exports = {
   getAllCafes,
   getPaginatedAllCafes,
@@ -203,4 +228,5 @@ module.exports = {
   createCafe,
   getCafeById,
   updateCafe,
+  deleteCafe
 };
