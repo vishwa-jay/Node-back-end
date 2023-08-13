@@ -9,7 +9,7 @@ function emptyOrRows(rows) {
   return rows;
 }
 
-function createNewEmpId(lastEmpId) {
+function createNewEmpId(lastEmpId="UI0000000") {
   const lastIdWithoutPreFix = String(lastEmpId).substring(2);
   const newId = String(parseInt(lastIdWithoutPreFix) + 1);
   return newId.padStart(7, "0");
